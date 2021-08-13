@@ -98,6 +98,7 @@ def plot1d_ts_scam(rinfo):
   
     sfile_nums = np.array(rinfo['File Num'])
     sfig_stub = rinfo['Stub Figs']
+    fig_file = rinfo['Fig Out'] 
     dir_root = rinfo['Dir Root']
     pvars_list = rinfo['pvars_list']
     
@@ -319,10 +320,10 @@ def plot1d_ts_scam(rinfo):
         
      
         npdays = (time.dt.day[-1].values-time.dt.day[0].values)
-        
-       
+  
+        npdays = 0.5
         if npdays <= 1: # Only hour plotting for 1 day or less.
-            time_stride = mdates.HourLocator(interval = 1)  ;  myFmt = mdates.DateFormatter('%H') ##### EVERY DAY
+            time_stride = mdates.HourLocator(interval = 2)  ;  myFmt = mdates.DateFormatter('%H') ##### EVERY MONTH
         else:
             time_stride = mdates.DayLocator(interval = 2)  ;  myFmt = mdates.DateFormatter('%D') ##### EVRY DAY
             
@@ -346,7 +347,11 @@ def plot1d_ts_scam(rinfo):
             handletextpad=0.5, handlelength=1.5, borderaxespad=-5,
             framealpha=1.0,frameon=True)
         #        mp.show()
-#        mp.savefig(sfig_stub+'_plot1d_ts_scam_'+var+'.png', dpi=300)
+        
+
+# OUTPUT FIGS TO FILE?    
+        if (fig_file):
+            mp.savefig(sfig_stub+'_plot1d_ts_scam_'+var+'.png', dpi=300)
         
         print('================================================================================================')
         print('')
@@ -431,6 +436,7 @@ def plot2d_ts_scam(rinfo):
     sfile_nums = np.array(rinfo['File Num'])
     dir_root = rinfo['Dir Root']
     sfig_stub = rinfo['Stub Figs']
+    fig_file = rinfo['Fig Out'] 
     pvars_list = rinfo['pvars_list']
 
     zoffset,iop_day,ttmin,ttmax = mypy.get_iop_info(case_iop) # A few iop specific vars.
@@ -499,7 +505,7 @@ def plot2d_ts_scam(rinfo):
         ### First case plot (could be only plot) ###
 
         scam_icase = mypy.scam_open_files(case_iop,sfile_nums[0],srun_names[0],dir_root)
-#        scam_icase = xr.decode_cf(scam_icase)
+
         plevm,zlevm = mypy.vcoord_scam('mid',scam_icase)
         plevi,zlevi = mypy.vcoord_scam('int',scam_icase)
 
@@ -681,7 +687,17 @@ def plot2d_ts_scam(rinfo):
             if sfile_nums[icase] =='LES': 
                 pvarp,hour_frac,zlev = mypy.get_les_dset(scam_icase,plot2d_df,var)
                 pvarp = pvarp.transpose()
+                hour_frac = np.array(hour_frac)
+               
 
+                time_floor = np.floor(hour_frac) 
+                time_2min = 100*time_floor+np.rint(60*(hour_frac - time_floor))
+                time_int = time_2min.astype(int)
+                
+                time_hhmm = ["{:04d}".format(tt) for tt in time_int ]
+                time = pd.to_datetime(time_hhmm, format='%H%M')
+                
+            
         ##### PLOTS #####                                                                
         ### Reshape sub-fig placements ###          
 
@@ -699,20 +715,21 @@ def plot2d_ts_scam(rinfo):
                     srun_names[icase],' -- ',sfile_nums[icase],' -- ', np.min(pvar.values),np.max(pvar.values))
             
             plt0 = ax1.contourf(time,zlev,pvarp,levels=plevels,cmap=pcmap, extend='both')
-            mp.hlines(zlev, min(time), max(time), linestyle="dotted",lw=0.4) # Add level lines
-            hours = mdates.HourLocator(interval = 1)  #
+          
+            hours = mdates.HourLocator(interval = 2)  #
             h_fmt = mdates.DateFormatter('%H')
             ax1.xaxis.set_major_locator(hours)
             ax1.xaxis.set_major_formatter(h_fmt)
                 
         # Squeeze in colorbar here so it doesn't get messed up by line contours
-                           
+                  
             if icase==ncases-1: 
-#                mp.subplots_adjust(right=0.9)  
                 mp.colorbar(plt0, cax=fig1.add_axes([0.92,  0.13, 0.02, 0.76]))
-                
-#            plt0 = ax1.contourf(hour_frac,zlev,pvarp,levels=[-min(np.abs(plevels)),min(np.abs(plevels))],colors='w') # Just to get white fill contours either side of zero
+
+            mp.hlines(zlev, min(time), max(time), linestyle="dotted",lw=0.4) # Add level lines     
             plt0 = ax1.contour(time,zlev,pvarp,levels=plevels, colors='black',linewidths=0.75) 
+            
+            
             ax1.clabel(plt0, fontsize=8, colors='black')			   
 #				ax1.clabel(plt0, fontsize=8, colors='black',fmt='%1.1f')
 
@@ -720,25 +737,26 @@ def plot2d_ts_scam(rinfo):
             ax1.set_title(stitle)
             ax1.set_xlabel("Local Time (hr)")
             ax1.set_ylim(zzmin,zzmax)
-            ax1.set_xlim(ttmin, ttmax)  
+#            ax1.set_xlim(ttmin, ttmax)  
             
-            
-
-#            plt0 = ax1.plot(ceil_obs_t,ceil_obs,'X',color='red')
-           
 
     #            ax1.yaxis.set_visible(False) # Remove y labels
     #            ax1.invert_yaxis()  
 
-    ## Plot ##
-    
+   
+        if (fig_file) :  #OUTPUT FIGS TO FILE?
+            mp.savefig(sfig_stub+'_plot2d_ts_scam_'+var+'_'+ptype+'.png', dpi=300) 
+            
         print('================================================================================================')
         print('')
         
-        mp.savefig(sfig_stub+'_plot2d_ts_scam_'+var+'_'+ptype+'.png', dpi=600)    
+           
+            
         mp.show()
 
         print('')
+        
+        mp.close()
         
         del pvar       
 
@@ -832,7 +850,8 @@ def plot1d_snap_scam(rinfo):
     sfile_nums = np.array(rinfo['File Num'])
     sfig_stub = rinfo['Stub Figs']
     tsnaps = rinfo['Snap Times']
-    dir_root = rinfo['Dir Root']    
+    dir_root = rinfo['Dir Root'] 
+    fig_file = rinfo['Fig Out'] 
     pvars_list = rinfo['pvars_list']
 
     zoffset,iop_day,ttmin,ttmax = mypy.get_iop_info(case_iop)
@@ -1018,7 +1037,8 @@ def plot1d_snap_scam(rinfo):
         print('================================================================================================')
         print()
     
-        mp.savefig(sfig_stub+'_plot1d_snap_scam_'+var+'.png', dpi=300)    
+        if (fig_file) :
+            mp.savefig(sfig_stub+'_plot1d_snap_scam_'+var+'.png', dpi=300)    
 
         del pvar # Reset pvar array
 
