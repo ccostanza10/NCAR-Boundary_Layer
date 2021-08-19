@@ -1042,6 +1042,274 @@ def plot1d_snap_scam(rinfo):
 
         del pvar # Reset pvar array
 
+        
+        
+        
+        
+        
+        
+ 
+
+
+''' BELOW A COPY OF SNAPSHOT CODE TO START OFF WITH '''
+        
+###############################################
+# 2D Average Plotting info.
+###############################################
+
+
+def plot2d_av_scam(rinfo):
+    
+    
+    	
+    """
+    1D TIMESTAMP COLUMN PLOTTING
+
+    """
+    
+    
+    
+# Grab variable information for plotting
+	
+    
+    plot_2dav_df = myvars.var_plot_setup("2d_ave",rinfo['Var List'])
+
+    
+
+# Global stuff
+   
+    vleg_ul = ['TH','THL','THV'] # Vars with leg in upper left
+    
+    ppmin = 650. ; ppmax = 1000. # Pressure (mb) plot range    
+    
+    var_anim = 'THL'
+    run_anim = '101c'
+    pvar_anim = None
+    pvars_snap = np.array(rinfo['snapvars'])
+
+
+## Unbundle ##
+    case_iop = rinfo['Case IOP']
+    pvars_ts2d = np.array(rinfo['2dvars'])
+    srun_names =  np.array(rinfo['Run Name']) # Has to be numpy so it can get appended
+    sfile_nums = np.array(rinfo['File Num'])
+    sfig_stub = rinfo['Stub Figs']
+    tsnaps = rinfo['Snap Times']
+    dir_root = rinfo['Dir Root'] 
+    fig_file = rinfo['Fig Out'] 
+    pvars_list = rinfo['pvars_list']
+
+    zoffset,iop_day,ttmin,ttmax = mypy.get_iop_info(case_iop)
+
+ 
+
+    
+    print("")
+    print("=============================================")
+    print(case_iop," - 1D SNAPSHOT PLOTTING VARIABLES")
+    print("=============================================")
+
+    
+
+
+
+# Display all available variables    
+
+    if (pvars_list) : print(plot_snap_df) 
+    
+    
+    
+## Derived vars.	
+    ncases = srun_names.size 
+    ntsnaps = tsnaps.size
+    
+    
+    
+    
+##########################
+## VARIABLE LOOP #########
+##########################
+         
+    for var in pvars_2dav:
+
+        long_name = plot_snap_df.loc[var,'long_name'] 
+        vunits = plot_snap_df.loc[var,'units'] 
+        cmin = plot_snap_df.loc[var,'cmin'] ; cmax = plot_snap_df.loc[var,'cmax']
+
+        ### PLOT STUFF FOR SUBLOT SETUP ###
+
+        fig1 = mp.figure(figsize=(16, 5))
+        ax1 = fig1.add_subplot(111)
+   
+
+        # Plot several different functions...
+
+        labelspacing = []
+        labels = []
+        
+        
+        print()
+        print('================================================================================================')
+        print('---- PLOTTING 1D HEIGHT SNAPSHOT PLOTS ------>>>  ')
+        print(' - ',var,'  - ', plot_snap_df.loc[var]['long_name'],' --')
+        
+        
+############################
+## LOOP CASES AND SUBLOTS ##
+############################
+
+        nn = len(fig1.axes)
+
+        for icase in range(0,ncases):
+            
+            pvar = None
+            
+#            scam_icase = xr.open_dataset(sfiles_in[icase],engine='netcdf4') 
+            scam_icase = mypy.scam_open_files(case_iop,sfile_nums[icase],srun_names[icase],dir_root)
+            # Vertical grid estimate.
+            
+            if sfile_nums[icase] != 'LES':
+ 
+                pblh_dq =  mypy.pbl_grad_calc('Q',scam_icase)
+#                pblh_dq =  pblh_dq.isel(lat=0,lon=0)
+                pblh_dt =  scam_icase['PBLH'].isel(lat=0,lon=0)
+    
+                vscale = plot_snap_df.loc[var,'vscale'] 
+ 
+                plevm,zlevm = mypy.vcoord_scam('mid',scam_icase)
+                plevi,zlevi = mypy.vcoord_scam('int',scam_icase)
+    
+                dzbot = 1000.*mpc.pressure_to_height_std(plevi[-1])
+            
+                time = scam_icase.time
+           
+                hour_frac = time.time.dt.hour+time.time.dt.minute/60.+zoffset           
+                hour_frac[hour_frac<0.] = hour_frac.values[hour_frac<0.]+24. # Reset if day ticks over to next day
+
+            
+## Get Data ##
+                if var in ['TH','THL']: 
+                    pvar = mypy.dev_vars_scam(var,scam_icase)
+                    pvar = pvar.transpose()
+           
+                if pvar is None :  # Set pvar if not already.
+                    pvar = scam_icase[var].isel(lat=0,lon=0)
+
+          ### Determine Vertical Coord (lev/ilev) + time ###
+                plev = plevi[0,:] if 'ilev' in pvar.dims else plevm[0,:]
+                zlev = zlevi[0,:] if 'ilev' in pvar.dims else zlevm[0,:] 
+                pvar = pvar*vscale
+                    
+               
+            
+            if sfile_nums[icase] == 'LES':
+                pvar,hour_frac,zlev = mypy.get_les_dset(scam_icase,plot_snap_df,var)
+                
+                pblh_dq = scam_icase['zi_q'] # THis seems wrong compared to q field
+                pblh_dt = scam_icase['zi_t'] # This seems right
+
+                
+### PRINT SOME CASE INFO ###
+
+            print(' -->  ', \
+                    srun_names[icase],' -- ',sfile_nums[icase],' -- ', np.min(pvar.values),np.max(pvar.values))
+
+    
+    
+############################     
+### LOOP SNAP SHOT TIMES ###
+############################
+        
+    
+
+            nplot_snaps = ntsnaps if sfile_nums[icase] != '106def' else ntsnaps-1
+            for ii in range(0, nplot_snaps): 
+                
+#                print(' --- LOOP --- ')
+#                print(tsnaps[ii])
+#                print(hour_frac)
+#                print(tsnaps)
+                itt = np.min(np.where(hour_frac==tsnaps[ii])) # Plot at this time
+                    
+                pvart = pvar[itt,:]
+              
+                cmap=mp.get_cmap("tab10")   
+                mp.plot(pvart,zlev,color=cmap(ii)) 
+            
+                ax1.set_xlabel(vunits)
+                if icase ==0 : ax1.set_ylabel("meters")
+                ax1.set_ylim(0, 3000.)
+                ax1.set_xlim(cmin,cmax)
+                
+                         
+#                if var not in ['T','TH','THL']: 
+
+                mp.hlines(zlev, cmin, cmax,lw=0.01) # plev horizontal lines
+                
+## PLOT PBLH DEPEDENT ON QUANTITY ###
+                
+               
+                pblh = pblh_dq[itt] if var=='Q' else pblh_dt[itt] # Temp (theta) or Q criteria
+               
+                mp.hlines(pblh, cmin, cmax, linestyle="dashed",lw=1,color=cmap(ii)) # plot approx PBL depth
+        
+### Legend ###
+                mp.suptitle(long_name+(' - CLUBB' if 'CLUBB' in var else ' ')+' ('+vunits+')')
+ 
+                mp.title(srun_names[icase])
+                lpos = 'upper left' if var in vleg_ul else 'upper right'
+                mp.legend(labels=tsnaps, ncol=2, loc=lpos, 
+                    columnspacing=1.0, labelspacing=1, 
+                    handletextpad=0.5, handlelength=0.5, frameon=False)
+               
+### Reshape sub-fig placements (no need to do after last figure) ###
+#            mp.show()
+            
+            if icase != ncases-1 :
+    
+                nn = len(fig1.axes)
+           
+                for i in range(nn):
+                    fig1.axes[i].change_geometry(1, nn+1, i+1)
+                ax1 = fig1.add_subplot(1, nn+1, nn+1)
+             
+# Save off variables/case for animation
+
+       
+        if var == var_anim and sfile_nums[icase] == run_anim: pvar_anim = pvar 
+        
+#        mp.show()
+        print('================================================================================================')
+        print()
+    
+        if (fig_file) :
+            mp.savefig(sfig_stub+'_plot1d_snap_scam_'+var+'.png', dpi=300)    
+
+        del pvar # Reset pvar array
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    ''' ANIMATION '''
+        
+        
+        
 # Animation
     if pvar_anim is not None:
 
