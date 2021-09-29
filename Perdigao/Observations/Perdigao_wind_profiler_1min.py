@@ -479,10 +479,6 @@ for instrument,nc_file in enumerate(nc_files):
         u_one_mins[i] = one_min_u[i]
         v_one_mins[i] = one_min_v[i]
         w_one_mins[i] = one_min_w[i]
-      print(timestep)
-      print(one_min_u)
-      print(one_min_v)
-      print(one_min_w)
 
     if nc_file == ncar_wp_file:
       # pull all the data for the 5 minute time period into new arrays
@@ -572,7 +568,7 @@ for instrument,nc_file in enumerate(nc_files):
                              float(one_min_wd[i])))
           v_one_mins[i] = -(float(one_min_ws[i]))*math.cos(np.deg2rad(\
                              float(one_min_wd[i])))
-          w_one_mins[i] = float(one_min_w[i])
+          w_one_mins[i] = -(float(one_min_w[i]))
  
     if nc_file == CU_Orange_lidar_file or nc_file == CU_Beehive_lidar_file:
       # pull all the data for the 5 minute time period into new arrays
